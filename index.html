@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parcelas do Polo</title>
+    <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a73e8">
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js');
+  }
+</script>
+
+    <style>
+        :root { --blue: #1a73e8; --green: #1e8e3e; --red: #d93025; --bg: #f8f9fa; --card: #ffffff; --text: #3c4043; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text); }
+        .app-container { max-width: 450px; margin: auto; }
+        .card { background: var(--card); border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); margin-bottom: 15px; }
+        .header { text-align: center; padding: 10px 0; }
+        .app-title { font-size: 20px; font-weight: bold; color: #202124; margin-bottom: 5px; display: block; }
+        .price-main { font-size: 26px; font-weight: bold; color: var(--blue); }
+        .label { font-size: 10px; color: #70757a; text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px; }
+        
+        .resumo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; }
+        .val-destaque { font-size: 15px; font-weight: bold; color: #202124; }
+
+        .progress-container { background: #dadce0; border-radius: 10px; height: 12px; margin: 15px 0; overflow: hidden; }
+        .progress-bar { background: var(--green); height: 100%; width: 0%; transition: 1s ease-in-out; }
+        
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+        input, select, button { width: 100%; padding: 10px; margin-top: 5px; border-radius: 8px; border: 1px solid #ced4da; box-sizing: border-box; font-size: 13px; }
+        .btn-add { background: var(--blue); color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; padding: 12px; }
+
+        .history-list { margin-top: 10px; max-height: 450px; overflow-y: auto; }
+        .item { padding: 12px; border-bottom: 1px solid #f1f3f4; display: flex; justify-content: space-between; align-items: center; }
+        .item-info { display: flex; flex-direction: column; gap: 2px; flex-grow: 1; }
+        .item-header { display: flex; align-items: center; gap: 8px; }
+        .item-n { font-weight: bold; font-size: 14px; }
+        .badge-pago { background: #e6f4ea; color: var(--green); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; }
+        .item-route { font-size: 11px; color: #5f6368; }
+        .item-date { font-size: 12px; color: #70757a; }
+        
+        .actions { display: flex; gap: 8px; margin-left: 10px; }
+        .btn-action { width: 32px; height: 32px; padding: 0; display: flex; align-items: center; justify-content: center; border: none; border-radius: 6px; cursor: pointer; color: white; }
+        .btn-edit { background: #f9ab00; }
+        .btn-del { background: var(--red); }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="header">
+        <span class="app-title">🚗 Parcelas do Polo</span>
+        <span class="label">Total Geral Pago (Entrada + Parcelas)</span>
+        <div id="total-geral" class="price-main">R$ 0,00</div>
+    </div>
+
+    <div class="card">
+        <div class="resumo-grid">
+            <div><span class="label">Entrada</span><div class="val-destaque">R$ 6.000,00</div></div>
+            <div><span class="label">Total das Parcelas</span><div id="total-somente-parcelas" class="val-destaque" style="color: var(--green);">R$ 0,00</div></div>
+        </div>
+        <div class="resumo-grid" style="border:none; padding-top: 5px;">
+            <div><span class="label">Valor Total Carro</span><div class="val-destaque">R$ 27.000,00</div></div>
+            <div><span class="label">Falta Pagar</span><div id="valor-restante" class="val-destaque" style="color: var(--red);">R$ 0,00</div></div>
+        </div>
+        
+        <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
+        <div style="text-align: right;"><span class="label">Progresso Geral</span><div id="perc-txt" style="font-weight: bold; color: var(--green);">0%</div></div>
+    </div>
+
+    <div class="card">
+        <h3 id="form-title" style="margin: 0 0 12px 0; font-size: 15px;">✅ Novo Pagamento</h3>
+        <input type="hidden" id="edit-index" value="-1">
+        
+        <div class="form-grid">
+            <div><label class="label">Parc. Nº</label><input type="number" id="inp-n"></div>
+            <div><label class="label">Valor R$</label><input type="number" id="inp-v" step="0.01"></div>
+            <div><label class="label">Data</label><input type="date" id="inp-data"></div>
+        </div>
+        
+        <div class="form-grid" style="margin-top:10px; grid-template-columns: 1fr 1fr;">
+            <div><label class="label">De: (Envio)</label>
+                <select id="inp-de">
+                    <option value="Itaú">Itaú</option>
+                    <option value="Credicoop">Credicoop</option>
+                    <option value="Nubank">Nubank</option>
+                </select>
+            </div>
+            <div><label class="label">Para: (Destino)</label>
+                <select id="inp-para">
+                    <option value="Credicoop">Credicoop</option>
+                    <option value="Nubank">Nubank</option>
+                    <option value="Itaú">Itaú</option>
+                </select>
+            </div>
+        </div>
+        <button id="btn-save" class="btn-add" onclick="salvar()">Confirmar Pagamento</button>
+        <button id="btn-cancel" style="display:none; background:#ccc; margin-top:5px;" onclick="resetForm()">Cancelar Edição</button>
+    </div>
+
+    <div class="card">
+        <h3 style="margin: 0 0 12px 0; font-size: 15px;">📜 Histórico</h3>
+        <div id="lista" class="history-list"></div>
+    </div>
+</div>
+
+<script>
+    const VALOR_TOTAL_CARRO = 27000;
+    const ENTRADA = 6000;
+
+    let parcelas = JSON.parse(localStorage.getItem('polo_vFinal_v7')) || [
+        {n: 1, v: 600, de: 'Itaú', para: 'Nubank', d: '2024-10-09'},
+        {n: 2, v: 600, de: 'Itaú', para: 'Nubank', d: '2024-11-07'},
+        {n: 3, v: 500, de: 'Itaú', para: 'Nubank', d: '2024-12-04'},
+        {n: 4, v: 500, de: 'Itaú', para: 'Nubank', d: '2025-01-04'},
+        {n: 5, v: 500, de: 'Itaú', para: 'Nubank', d: '2025-02-06'},
+        {n: 6, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-04-03'},
+        {n: 7, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-05-03'},
+        {n: 8, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-06-04'},
+        {n: 9, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-07-04'},
+        {n: 10, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-08-02'},
+        {n: 11, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-09-05'},
+        {n: 12, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-10-02'},
+        {n: 13, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-11-03'},
+        {n: 14, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-11-03'},
+        {n: 15, v: 500, de: 'Itaú', para: 'Credicoop', d: '2026-01-02'},
+        {n: 16, v: 500, de: 'Itaú', para: 'Credicoop', d: '2026-02-01'}
+    ];
+
+    function formatData(d) {
+        if(!d) return "";
+        const p = d.split('-');
+        return `${p[2]}/${p[1]}/${p[0]}`;
+    }
+
+    function atualizar() {
+        let totalPagoEmParcelas = parcelas.reduce((s, p) => s + parseFloat(p.v), 0);
+        let totalGeralPago = totalPagoEmParcelas + ENTRADA;
+        let falta = VALOR_TOTAL_CARRO - totalGeralPago;
+        let progresso = (totalGeralPago / VALOR_TOTAL_CARRO) * 100;
+
+        document.getElementById('total-geral').innerText = `R$ ${totalGeralPago.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById('total-somente-parcelas').innerText = `R$ ${totalPagoEmParcelas.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById('valor-restante').innerText = `R$ ${falta.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById('perc-txt').innerText = (progresso > 100 ? 100 : progresso).toFixed(1) + '%';
+        document.getElementById('progress-bar').style.width = (progresso > 100 ? 100 : progresso) + '%';
+
+        let html = '';
+        [...parcelas].sort((a,b) => b.n - a.n).forEach((p) => {
+            const realIndex = parcelas.indexOf(p);
+            html += `
+                <div class="item">
+                    <div class="item-info">
+                        <div class="item-header">
+                            <span class="item-n">Parc. ${p.n} - R$ ${parseFloat(p.v).toFixed(2)}</span>
+                            <span class="badge-pago">PAGO</span>
+                        </div>
+                        <span class="item-date">${formatData(p.d)}</span>
+                        <span class="item-route">${p.de} ⮕ ${p.para}</span>
+                    </div>
+                    <div class="actions">
+                        <button class="btn-action btn-edit" onclick="editar(${realIndex})">✏️</button>
+                        <button class="btn-action btn-del" onclick="remover(${realIndex})">🗑️</button>
+                    </div>
+                </div>`;
+        });
+        document.getElementById('lista').innerHTML = html;
+        localStorage.setItem('polo_vFinal_v7', JSON.stringify(parcelas));
+        resetForm();
+    }
+
+    function salvar() {
+        const idx = parseInt(document.getElementById('edit-index').value);
+        const nova = {
+            n: parseInt(document.getElementById('inp-n').value),
+            v: parseFloat(document.getElementById('inp-v').value),
+            de: document.getElementById('inp-de').value,
+            para: document.getElementById('inp-para').value,
+            d: document.getElementById('inp-data').value
+        };
+
+        if(!nova.n || isNaN(nova.v) || !nova.d) return alert("Preencha todos os campos!");
+
+        if(idx === -1) {
+            parcelas.push(nova);
+        } else {
+            parcelas[idx] = nova;
+        }
+        atualizar();
+    }
+
+    function editar(idx) {
+        const p = parcelas[idx];
+        document.getElementById('edit-index').value = idx;
+        document.getElementById('inp-n').value = p.n;
+        document.getElementById('inp-v').value = p.v;
+        document.getElementById('inp-data').value = p.d;
+        document.getElementById('inp-de').value = p.de;
+        document.getElementById('inp-para').value = p.para;
+        
+        document.getElementById('form-title').innerText = "✏️ Editando Parcela " + p.n;
+        document.getElementById('btn-save').innerText = "Salvar";
+        document.getElementById('btn-cancel').style.display = "block";
+        window.scrollTo(0,0);
+    }
+
+    function remover(idx) {
+        if(confirm("Excluir parcela " + parcelas[idx].n + "?")) {
+            parcelas.splice(idx, 1);
+            atualizar();
+        }
+    }
+
+    function resetForm() {
+        document.getElementById('edit-index').value = "-1";
+        document.getElementById('form-title').innerText = "✅ Novo Pagamento";
+        document.getElementById('btn-save').innerText = "Confirmar Pagamento";
+        document.getElementById('btn-cancel').style.display = "none";
+        
+        const ultima = [...parcelas].sort((a,b) => a.n - b.n).pop();
+        document.getElementById('inp-n').value = (ultima ? ultima.n + 1 : 1);
+        document.getElementById('inp-v').value = 500;
+        document.getElementById('inp-data').value = new Date().toISOString().split('T')[0];
+    }
+
+    atualizar();
+</script>
+</body>
+</html>
