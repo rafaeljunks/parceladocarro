@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Parcelas do Polo</title>
+    
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1a73e8">
+    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/741/741407.png">
+
+    <style>
+        :root { --blue: #1a73e8; --green: #1e8e3e; --red: #d93025; --bg: #f8f9fa; --card: #ffffff; --text: #3c4043; }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: var(--text); -webkit-tap-highlight-color: transparent; }
+        .app-container { max-width: 450px; margin: auto; }
+        .card { background: var(--card); border-radius: 12px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,0.12); margin-bottom: 15px; }
+        .header { text-align: center; padding: 10px 0; }
+        .app-title { font-size: 20px; font-weight: bold; color: #202124; margin-bottom: 5px; display: block; }
+        .price-main { font-size: 26px; font-weight: bold; color: var(--blue); }
+        .label { font-size: 10px; color: #70757a; text-transform: uppercase; font-weight: bold; display: block; margin-bottom: 4px; }
+        .resumo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 10px; border-top: 1px solid #eee; padding-top: 10px; }
+        .val-destaque { font-size: 15px; font-weight: bold; color: #202124; }
+        .progress-container { background: #dadce0; border-radius: 10px; height: 12px; margin: 15px 0; overflow: hidden; }
+        .progress-bar { background: var(--green); height: 100%; width: 0%; transition: 1s ease-in-out; }
+        
+        /* Form Estilos */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+        input, select, button { width: 100%; padding: 12px; margin-top: 5px; border-radius: 8px; border: 1px solid #ced4da; box-sizing: border-box; font-size: 14px; }
+        .btn-add { background: var(--blue); color: white; border: none; font-weight: bold; cursor: pointer; margin-top: 15px; }
+        
+        /* Histórico */
+        .history-list { margin-top: 10px; max-height: 450px; overflow-y: auto; }
+        .item { padding: 12px; border-bottom: 1px solid #f1f3f4; display: flex; justify-content: space-between; align-items: center; }
+        .badge-pago { background: #e6f4ea; color: var(--green); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; }
+        .btn-action { width: 35px; height: 35px; border: none; border-radius: 6px; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+        .btn-edit { background: #f9ab00; }
+        .btn-del { background: var(--red); }
+        .btn-view { background: #5f6368; }
+
+        /* Modal Comprovante */
+        #modal { display: none; position: fixed; top:0; left:0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; justify-content: center; align-items: center; flex-direction: column; }
+        #modal img { max-width: 90%; max-height: 80%; border-radius: 8px; }
+        .btn-close { margin-top: 20px; background: white; color: black; padding: 10px 20px; border-radius: 20px; border:none; font-weight: bold; width: auto; }
+    </style>
+</head>
+<body>
+
+<div id="modal">
+    <img id="img-view" src="" alt="Comprovante">
+    <button class="btn-close" onclick="fecharModal()">Fechar Visualização</button>
+</div>
+
+<div class="app-container">
+    <div class="header">
+        <span class="app-title">🚗 Parcelas do Polo</span>
+        <span class="label">Total Geral Pago</span>
+        <div id="total-geral" class="price-main">R$ 0,00</div>
+    </div>
+
+    <div class="card">
+        <div class="resumo-grid">
+            <div><span class="label">Entrada</span><div class="val-destaque">R$ 6.000,00</div></div>
+            <div><span class="label">Total Parcelas</span><div id="total-somente-parcelas" class="val-destaque" style="color: var(--green);">R$ 0,00</div></div>
+        </div>
+        <div class="resumo-grid" style="border:none; padding-top: 5px;">
+            <div><span class="label">Total Carro</span><div class="val-destaque">R$ 27.000,00</div></div>
+            <div><span class="label">Falta</span><div id="valor-restante" class="val-destaque" style="color: var(--red);">R$ 0,00</div></div>
+        </div>
+        <div class="progress-container"><div id="progress-bar" class="progress-bar"></div></div>
+        <div style="text-align: right;"><span class="label">Progresso</span><div id="perc-txt" style="font-weight: bold; color: var(--green);">0%</div></div>
+    </div>
+
+    <div class="card">
+        <h3 id="form-title" style="margin: 0 0 12px 0; font-size: 15px;">✅ Novo Pagamento</h3>
+        <input type="hidden" id="edit-index" value="-1">
+        <div class="form-grid">
+            <div><label class="label">Nº</label><input type="number" id="inp-n"></div>
+            <div><label class="label">Valor R$</label><input type="number" id="inp-v" step="0.01"></div>
+            <div><label class="label">Data</label><input type="date" id="inp-data"></div>
+        </div>
+        <div style="margin-top:10px;">
+            <label class="label">Comprovante (Imagem)</label>
+            <input type="file" id="inp-file" accept="image/*" style="padding: 5px; border: none; background: #eee;">
+        </div>
+        <div class="form-grid" style="margin-top:10px; grid-template-columns: 1fr 1fr;">
+            <div><label class="label">De:</label><select id="inp-de"><option>Itaú</option><option>Credicoop</option><option>Nubank</option></select></div>
+            <div><label class="label">Para:</label><select id="inp-para"><option>Credicoop</option><option>Nubank</option><option>Itaú</option></select></div>
+        </div>
+        <button id="btn-save" class="btn-add" onclick="salvar()">Confirmar Pagamento</button>
+        <button id="btn-cancel" style="display:none; background:#ccc; margin-top:5px;" onclick="resetForm()">Cancelar</button>
+    </div>
+
+    <div class="card">
+        <h3 style="margin: 0 0 12px 0; font-size: 15px;">📜 Histórico</h3>
+        <div id="lista" class="history-list"></div>
+    </div>
+</div>
+
+<script>
+    const VALOR_TOTAL_CARRO = 27000;
+    const ENTRADA = 6000;
+
+    let parcelas = JSON.parse(localStorage.getItem('polo_vFinal_img')) || [
+        {n: 1, v: 600, de: 'Itaú', para: 'Nubank', d: '2024-10-09', img: null},
+        {n: 2, v: 600, de: 'Itaú', para: 'Nubank', d: '2024-11-07', img: null},
+        {n: 3, v: 500, de: 'Itaú', para: 'Nubank', d: '2024-12-04', img: null},
+        {n: 4, v: 500, de: 'Itaú', para: 'Nubank', d: '2025-01-04', img: null},
+        {n: 5, v: 500, de: 'Itaú', para: 'Nubank', d: '2025-02-06', img: null},
+        {n: 6, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-04-03', img: null},
+        {n: 7, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-05-03', img: null},
+        {n: 8, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-06-04', img: null},
+        {n: 9, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-07-04', img: null},
+        {n: 10, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-08-02', img: null},
+        {n: 11, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-09-05', img: null},
+        {n: 12, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-10-02', img: null},
+        {n: 13, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-11-03', img: null},
+        {n: 14, v: 500, de: 'Itaú', para: 'Credicoop', d: '2025-11-03', img: null},
+        {n: 15, v: 500, de: 'Itaú', para: 'Credicoop', d: '2026-01-02', img: null},
+        {n: 16, v: 500, de: 'Itaú', para: 'Credicoop', d: '2026-02-01', img: null}
+    ];
+
+    function atualizar() {
+        let totalParcelas = parcelas.reduce((s, p) => s + parseFloat(p.v), 0);
+        let totalGeral = totalParcelas + ENTRADA;
+        let falta = VALOR_TOTAL_CARRO - totalGeral;
+        let progresso = (totalGeral / VALOR_TOTAL_CARRO) * 100;
+
+        document.getElementById('total-geral').innerText = `R$ ${totalGeral.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById('total-somente-parcelas').innerText = `R$ ${totalParcelas.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById('valor-restante').innerText = `R$ ${falta.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById('perc-txt').innerText = (progresso > 100 ? 100 : progresso).toFixed(1) + '%';
+        document.getElementById('progress-bar').style.width = (progresso > 100 ? 100 : progresso) + '%';
+
+        let html = '';
+        [...parcelas].sort((a,b) => b.n - a.n).forEach((p) => {
+            const idx = parcelas.indexOf(p);
+            html += `<div class="item">
+                <div style="flex-grow:1">
+                    <div style="display:flex; align-items:center; gap:8px">
+                        <span style="font-weight:bold">Parc. ${p.n} - R$ ${parseFloat(p.v).toFixed(2)}</span>
+                        <span class="badge-pago">PAGO</span>
+                    </div>
+                    <small style="color:#70757a">${p.d.split('-').reverse().join('/')} | ${p.de} ⮕ ${p.para}</small>
+                </div>
+                <div style="display:flex; gap:5px">
+                    ${p.img ? `<button class="btn-action btn-view" onclick="verImg(${idx})">📄</button>` : ''}
+                    <button class="btn-action btn-edit" onclick="editar(${idx})">✏️</button>
+                    <button class="btn-action btn-del" onclick="remover(${idx})">🗑️</button>
+                </div>
+            </div>`;
+        });
+        document.getElementById('lista').innerHTML = html;
+        localStorage.setItem('polo_vFinal_img', JSON.stringify(parcelas));
+    }
+
+    async function salvar() {
+        const idx = parseInt(document.getElementById('edit-index').value);
+        const fileInp = document.getElementById('inp-file');
+        let base64Img = (idx !== -1) ? parcelas[idx].img : null;
+
+        if (fileInp.files[0]) {
+            base64Img = await compressImg(fileInp.files[0]);
+        }
+
+        const nova = {
+            n: parseInt(document.getElementById('inp-n').value),
+            v: parseFloat(document.getElementById('inp-v').value),
+            de: document.getElementById('inp-de').value,
+            para: document.getElementById('inp-para').value,
+            d: document.getElementById('inp-data').value,
+            img: base64Img
+        };
+
+        if(!nova.n || isNaN(nova.v) || !nova.d) return alert("Preencha tudo!");
+        if(idx === -1) parcelas.push(nova); else parcelas[idx] = nova;
+        
+        atualizar();
+        resetForm();
+    }
+
+    // Função para diminuir a imagem (evita travar o app)
+    function compressImg(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (e) => {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    const size = 600; // Max 600px para poupar espaço
+                    let w = img.width;
+                    let h = img.height;
+                    if (w > h) { if (w > size) { h *= size / w; w = size; } }
+                    else { if (h > size) { w *= size / h; h = size; } }
+                    canvas.width = w; canvas.height = h;
+                    ctx.drawImage(img, 0, 0, w, h);
+                    resolve(canvas.toDataURL('image/jpeg', 0.7)); // Qualidade 70%
+                };
+            };
+        });
+    }
+
+    function verImg(idx) {
+        document.getElementById('img-view').src = parcelas[idx].img;
+        document.getElementById('modal').style.display = 'flex';
+    }
+
+    function fecharModal() { document.getElementById('modal').style.display = 'none'; }
+
+    function editar(idx) {
+        const p = parcelas[idx];
+        document.getElementById('edit-index').value = idx;
+        document.getElementById('inp-n').value = p.n;
+        document.getElementById('inp-v').value = p.v;
+        document.getElementById('inp-data').value = p.d;
+        document.getElementById('form-title').innerText = "✏️ Editando Parcela " + p.n;
+        document.getElementById('btn-save').innerText = "Salvar Alterações";
+        document.getElementById('btn-cancel').style.display = "block";
+        window.scrollTo(0,0);
+    }
+
+    function remover(idx) { if(confirm("Excluir?")) { parcelas.splice(idx,1); atualizar(); } }
+
+    function resetForm() {
+        document.getElementById('edit-index').value = "-1";
+        document.getElementById('form-title').innerText = "✅ Novo Pagamento";
+        document.getElementById('btn-save').innerText = "Confirmar Pagamento";
+        document.getElementById('btn-cancel').style.display = "none";
+        document.getElementById('inp-file').value = "";
+        const ultima = [...parcelas].sort((a,b) => a.n - b.n).pop();
+        document.getElementById('inp-n').value = (ultima ? ultima.n + 1 : 1);
+        document.getElementById('inp-v').value = 500;
+        document.getElementById('inp-data').value = new Date().toISOString().split('T')[0];
+    }
+
+    atualizar();
+</script>
+</body>
+</html>
